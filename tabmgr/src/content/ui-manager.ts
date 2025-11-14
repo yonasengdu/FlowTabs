@@ -1,6 +1,9 @@
 import { TabInfo } from '../shared/types';
 
 export function createSwitcherUI(tabs: TabInfo[], highlightedIndex: number): void {
+  // Clean up any existing popup first
+  cleanup();
+  
   injectCSS();
   const switcher = document.createElement('div');
   switcher.id = 'alt-q-switcher-overlay';
@@ -28,9 +31,27 @@ export function createSwitcherUI(tabs: TabInfo[], highlightedIndex: number): voi
 
 export function updateHighlight(index: number): void {
   const items = document.querySelectorAll('.alt-q-switcher-item');
+  const listElement = document.getElementById('alt-q-switcher-list');
+  
   items.forEach((item, i) => {
     item.classList.toggle('highlighted', i === index);
   });
+
+  // Auto-scroll to highlighted item when there are many tabs
+  if (listElement && items[index]) {
+    const highlightedItem = items[index] as HTMLElement;
+    const containerRect = listElement.getBoundingClientRect();
+    const itemRect = highlightedItem.getBoundingClientRect();
+    
+    // Check if item is outside visible area
+    if (itemRect.top < containerRect.top) {
+      // Item is above visible area, scroll up
+      highlightedItem.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else if (itemRect.bottom > containerRect.bottom) {
+      // Item is below visible area, scroll down
+      highlightedItem.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
+  }
 }
 
 export function cleanup(): void {

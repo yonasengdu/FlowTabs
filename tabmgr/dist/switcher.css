@@ -4,70 +4,203 @@
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(0, 0, 0, 0.4);
-    backdrop-filter: blur(5px);
+    background: linear-gradient(135deg, rgba(0, 0, 0, 0.6) 0%, rgba(20, 20, 30, 0.7) 100%);
+    backdrop-filter: blur(12px) saturate(180%);
+    -webkit-backdrop-filter: blur(12px) saturate(180%);
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 2147483647;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
 }
 
 #alt-q-switcher-list {
     display: flex;
     flex-wrap: wrap;
-    gap: 15px;
-    padding: 15px;
-    background-color: rgba(32, 32, 32, 0.9);
-    border-radius: 12px;
-    max-width: 80vw;
-    max-height: 80vh;
+    justify-content: center;
+    gap: 20px;
+    padding: 24px;
+    background: rgba(18, 18, 24, 0.85);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border-radius: 20px;
+    max-width: 85vw;
+    max-height: 85vh;
+    height: auto;
     overflow-y: auto;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    overflow-x: hidden;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+    /* Firefox scrollbar styling */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(91, 158, 255, 0.6) rgba(0, 0, 0, 0.3);
+    box-shadow: 
+        0 20px 60px rgba(0, 0, 0, 0.6),
+        0 0 0 1px rgba(255, 255, 255, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+#alt-q-switcher-list::-webkit-scrollbar {
+    width: 12px;
+}
+
+#alt-q-switcher-list::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 6px;
+    margin: 8px 0;
+}
+
+#alt-q-switcher-list::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, rgba(91, 158, 255, 0.6) 0%, rgba(70, 130, 230, 0.6) 100%);
+    border-radius: 6px;
+    border: 2px solid rgba(18, 18, 24, 0.5);
+    min-height: 40px;
+}
+
+#alt-q-switcher-list::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, rgba(91, 158, 255, 0.8) 0%, rgba(70, 130, 230, 0.8) 100%);
+}
+
+#alt-q-switcher-list::-webkit-scrollbar-thumb:active {
+    background: linear-gradient(180deg, rgba(91, 158, 255, 1) 0%, rgba(70, 130, 230, 1) 100%);
 }
 
 .alt-q-switcher-item {
-    width: 220px;
-    padding: 10px;
-    background-color: #333;
+    width: 240px;
+    padding: 12px;
+    background: linear-gradient(135deg, rgba(30, 30, 40, 0.9) 0%, rgba(25, 25, 35, 0.9) 100%);
     color: #fff;
-    border: 3px solid transparent;
-    border-radius: 8px;
+    border: 2px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
     cursor: pointer;
-    transition: transform 0.15s, background-color 0.15s;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.alt-q-switcher-item::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    pointer-events: none;
+}
+
+.alt-q-switcher-item:hover {
+    transform: translateY(-4px) scale(1.02);
+    border-color: rgba(255, 255, 255, 0.15);
+    box-shadow: 
+        0 8px 24px rgba(0, 0, 0, 0.4),
+        0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+.alt-q-switcher-item:hover::before {
+    opacity: 1;
 }
 
 .alt-q-switcher-item.highlighted {
-    border-color: #4dabf7;
-    background-color: #444;
-    transform: scale(1.03);
+    border-color: #5b9eff;
+    background: linear-gradient(135deg, rgba(91, 158, 255, 0.15) 0%, rgba(70, 130, 230, 0.1) 100%);
+    transform: translateY(-6px) scale(1.05);
+    box-shadow: 
+        0 12px 32px rgba(91, 158, 255, 0.3),
+        0 0 0 2px rgba(91, 158, 255, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        box-shadow: 
+            0 12px 32px rgba(91, 158, 255, 0.3),
+            0 0 0 2px rgba(91, 158, 255, 0.4),
+            inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    }
+    50% {
+        box-shadow: 
+            0 12px 32px rgba(91, 158, 255, 0.4),
+            0 0 0 2px rgba(91, 158, 255, 0.5),
+            inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    }
 }
 
 .alt-q-img-container {
-    width: 200px;
-    height: 112px; /* 16:9 Aspect Ratio */
-    background-color: #1a1a1a;
-    border-radius: 4px;
+    width: 216px;
+    height: 122px; /* 16:9 Aspect Ratio */
+    background: linear-gradient(135deg, rgba(10, 10, 15, 0.8) 0%, rgba(20, 20, 25, 0.8) 100%);
+    border-radius: 10px;
     overflow: hidden;
     display: flex;
     align-items: center;
     justify-content: center;
+    position: relative;
+    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.alt-q-img-container::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.1) 100%);
+    pointer-events: none;
 }
 
 .alt-q-preview-img {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    transition: transform 0.3s ease;
+}
+
+.alt-q-switcher-item:hover .alt-q-preview-img {
+    transform: scale(1.05);
 }
 
 .alt-q-favicon {
-    width: 32px;
-    height: 32px;
+    width: 40px;
+    height: 40px;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+    transition: transform 0.2s ease;
+}
+
+.alt-q-switcher-item:hover .alt-q-favicon {
+    transform: scale(1.1);
 }
 
 .alt-q-title {
@@ -75,7 +208,16 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    font-size: 13px;
+    font-size: 14px;
+    font-weight: 500;
     text-align: center;
-    color: #ddd;
+    color: #e8e8e8;
+    line-height: 1.4;
+    padding: 0 4px;
+    transition: color 0.2s ease;
+}
+
+.alt-q-switcher-item.highlighted .alt-q-title {
+    color: #ffffff;
+    font-weight: 600;
 }

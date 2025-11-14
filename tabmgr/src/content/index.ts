@@ -17,6 +17,9 @@ function main() {
       highlightedIndex: 0,
     };
 
+    let altUpListenerAdded = false;
+    let isProcessing = false;
+
     const port = chrome.runtime.connect({ name: 'content-script-lifecycle' });
     port.onDisconnect.addListener(() => { cleanupAndRemoveListeners(); });
 
@@ -27,12 +30,18 @@ function main() {
     });
 
     async function handleShortcutPress(): Promise<void> {
+      // Prevent multiple simultaneous calls
+      if (isProcessing) return;
+      
       if (!ui.isVisible) {
+        isProcessing = true;
         try {
-         
             const tabs: TabInfo[] = await chrome.runtime.sendMessage({ type: 'capture-and-get-list' });
            
-            if (!tabs || tabs.length === 0) return;
+            if (!tabs || tabs.length === 0) {
+              isProcessing = false;
+              return;
+            }
 
             ui.tabs = tabs;
             ui.highlightedIndex = tabs.length > 1 ? 1 : 0;
@@ -40,36 +49,46 @@ function main() {
 
             UIManager.createSwitcherUI(ui.tabs, ui.highlightedIndex);
             
-            window.addEventListener('keyup', handleAltUp, { capture: true });
-            document.getElementById('alt-q-switcher-overlay')?.addEventListener('click', handleCancel);
+            // Only add event listener once
+            if (!altUpListenerAdded) {
+              window.addEventListener('keyup', handleAltUp, { capture: true, once: false });
+              altUpListenerAdded = true;
+            }
+            
+            // Add click listener to overlay
+            const overlay = document.getElementById('alt-q-switcher-overlay');
+            if (overlay) {
+              overlay.addEventListener('click', handleCancel);
+            }
 
+            isProcessing = false;
         } catch (error) {
+            isProcessing = false;
             if ((error as Error).message.includes('Extension context invalidated')) {
                 cleanupAndRemoveListeners();
             }
         }
       } else {
+        // Cycle through tabs when popup is already visible
         ui.highlightedIndex = (ui.highlightedIndex + 1) % ui.tabs.length;
         UIManager.updateHighlight(ui.highlightedIndex);
       }
     }
 
     function handleAltUp(e: KeyboardEvent): void {
-      if (e.key === 'Alt') {
+      if (e.key === 'Alt' || e.keyCode === 18) {
         e.stopImmediatePropagation();
         e.preventDefault();
 
         if (ui.isVisible) {
           const selectedTab = ui.tabs[ui.highlightedIndex];
           if (selectedTab?.id) {
-      
-            cleanupAndRemoveListeners();
-
             const message: Message = { type: 'switch-to-tab', tabId: selectedTab.id };
-            chrome.runtime.sendMessage(message);
-          } else {
-            cleanupAndRemoveListeners();
+            chrome.runtime.sendMessage(message).catch(() => {
+              // Ignore errors if extension context is invalidated
+            });
           }
+          cleanupAndRemoveListeners();
         }
       }
     }
@@ -81,9 +100,19 @@ function main() {
     }
 
     function cleanupAndRemoveListeners(): void {
-      UIManager.cleanup();
-      ui.isVisible = false;
-      window.removeEventListener('keyup', handleAltUp, { capture: true });
+      if (ui.isVisible) {
+        UIManager.cleanup();
+        ui.isVisible = false;
+        ui.tabs = [];
+        ui.highlightedIndex = 0;
+      }
+      
+      if (altUpListenerAdded) {
+        window.removeEventListener('keyup', handleAltUp, { capture: true });
+        altUpListenerAdded = false;
+      }
+      
+      isProcessing = false;
     }
 }
 
