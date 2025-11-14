@@ -88,13 +88,9 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
 
 async function handleSwitchToTab(tabId: number): Promise<void> {
   try {
-    const tabService = container.resolve<ITabService>(SERVICE_KEYS.TAB_SERVICE);
     const tabRepository = container.resolve<ITabRepository>(SERVICE_KEYS.TAB_REPOSITORY);
     
-    // Update MRU list FIRST to ensure correct order for next popup
-    await tabService.updateMruList(tabId);
-    
-    // Then switch the tab
+    // Just switch the tab - let Chrome's onActivated event handle MRU update
     await tabRepository.updateTab(tabId, { active: true });
   } catch (error) {
     console.error('Error switching to tab:', error);

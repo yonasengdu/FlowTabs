@@ -4,12 +4,11 @@ import { IStorageRepository } from '../../core/repositories/IStorageRepository';
 import { IThumbnailRepository } from '../../core/repositories/IThumbnailRepository';
 import { TabInfo } from '../../shared/types';
 import { CHROME_PROTOCOL, THUMBNAIL_QUALITY } from '../../background/constants';
+import { MruList } from './MruList';
 
 export class TabService implements ITabService {
-  // Map maintains insertion order, O(1) operations
-  // Key: tabId, Value: order (for potential sorting, though insertion order is preserved)
-  private mruTabIds = new Map<number, number>();
-  private mruOrder = 0; // Counter for insertion order
+  // Doubly linked list + HashMap for O(1) MRU operations
+  private mruList = new MruList();
   private isInitialized = false;
 
   constructor(
@@ -18,9 +17,9 @@ export class TabService implements ITabService {
     private thumbnailRepository: IThumbnailRepository
   ) {}
 
-  // Convert Map to array only when needed for storage (Maps maintain insertion order)
+  // Convert linked list to array for storage
   private getMruArray(): number[] {
-    return Array.from(this.mruTabIds.keys());
+    return this.mruList.toArray();
   }
 
   async initialize(): Promise<void> {
@@ -42,22 +41,21 @@ export class TabService implements ITabService {
     const tabMap = new Map(allTabs.map(tab => [tab.id, tab]));
     const storedTabData = await this.storageRepository.getTabData();
     
-    // Map maintains insertion order, so iteration is in MRU order
-    return Array.from(this.mruTabIds.keys())
+    // Linked list iteration is already in MRU order (most recent first)
+    return this.mruList.toArray()
       .map(id => this.createTabInfo(id, tabMap, storedTabData))
       .filter((tab): tab is TabInfo => tab !== null);
   }
 
   async updateMruList(tabId: number): Promise<void> {
-    // O(1) delete and insert (Map maintains insertion order)
-    this.mruTabIds.delete(tabId);
-    this.mruTabIds.set(tabId, this.mruOrder++);
+    // O(1) add to front (or move to front if exists)
+    this.mruList.add(tabId);
     await this.storageRepository.saveMruList(this.getMruArray());
   }
 
   async removeTab(tabId: number): Promise<void> {
-    // O(1) delete
-    this.mruTabIds.delete(tabId);
+    // O(1) remove from linked list
+    this.mruList.remove(tabId);
     this.thumbnailRepository.removeThumbnail(tabId);
     
     await Promise.all([
@@ -103,18 +101,15 @@ export class TabService implements ITabService {
     const storedMruList = await this.storageRepository.getMruList();
     
     if (storedMruList.length > 0) {
-      // Load stored MRU list, filtering to only open tabs
-      for (const id of storedMruList) {
-        if (openTabIds.has(id)) {
-          this.mruTabIds.set(id, this.mruOrder++);
-        }
-      }
+      // Load stored MRU list (most recent first), filtering to only open tabs
+      const filteredIds = storedMruList.filter(id => openTabIds.has(id));
+      this.mruList.fromArray(filteredIds);
       this.addNewTabsToMruList(tabs, openTabIds);
     } else {
       // First time: initialize with all tabs
       for (const tab of tabs) {
         if (tab.id) {
-          this.mruTabIds.set(tab.id, this.mruOrder++);
+          this.mruList.add(tab.id);
         }
       }
     }
@@ -123,10 +118,10 @@ export class TabService implements ITabService {
   }
 
   private addNewTabsToMruList(tabs: chrome.tabs.Tab[], openTabIds: Set<number>): void {
-    // O(n) iteration, but O(1) Map operations
+    // O(n) iteration, but O(1) linked list operations
     for (const tab of tabs) {
-      if (tab.id && !this.mruTabIds.has(tab.id) && openTabIds.has(tab.id)) {
-        this.mruTabIds.set(tab.id, this.mruOrder++);
+      if (tab.id && !this.mruList.has(tab.id) && openTabIds.has(tab.id)) {
+        this.mruList.add(tab.id);
       }
     }
   }
@@ -151,11 +146,11 @@ export class TabService implements ITabService {
   private async syncMruListWithOpenTabs(): Promise<void> {
     const allTabs = await this.tabRepository.getTabsByWindowType('normal');
     
-    // O(n) iteration, but O(1) Map operations
+    // O(n) iteration, but O(1) linked list operations
     let hasChanges = false;
     for (const tab of allTabs) {
-      if (tab.id && !this.mruTabIds.has(tab.id)) {
-        this.mruTabIds.set(tab.id, this.mruOrder++);
+      if (tab.id && !this.mruList.has(tab.id)) {
+        this.mruList.add(tab.id);
         hasChanges = true;
       }
     }
