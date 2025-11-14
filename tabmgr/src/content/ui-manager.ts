@@ -1,72 +1,98 @@
 import { TabInfo } from '../shared/types';
+import { UI_IDS } from './constants';
+import { DEFAULT_FAVICON } from '../shared/constants';
 
-export function createSwitcherUI(tabs: TabInfo[], highlightedIndex: number): void {
-  // Clean up any existing popup first
-  cleanup();
-  
-  injectCSS();
-  const switcher = document.createElement('div');
-  switcher.id = 'alt-q-switcher-overlay';
-  switcher.innerHTML = `<div id="alt-q-switcher-list"></div>`;
-  document.body.appendChild(switcher);
+const CSS_URL = chrome.runtime.getURL('switcher.css');
 
-  const listElement = document.getElementById('alt-q-switcher-list') as HTMLDivElement;
-  
-  listElement.innerHTML = tabs.map(tab => {
-      const hasThumb = !!tab.thumbnailUrl;
-      const imgSrc = tab.thumbnailUrl || tab.favIconUrl || 'https://i.imgur.com/8QZ7gV5.png';
-      const imgClass = hasThumb ? 'alt-q-preview-img' : 'alt-q-favicon';
+export class UIManager {
+  static createSwitcherUI(tabs: TabInfo[], highlightedIndex: number): void {
+    this.cleanup();
+    this.injectCSS();
+    this.createOverlay();
+    this.renderTabs(tabs);
+    this.updateHighlight(highlightedIndex);
+  }
 
-      return `
-      <div class="alt-q-switcher-item">
-          <div class="alt-q-img-container">
-            <img src="${imgSrc}" class="${imgClass}" loading="lazy" alt=""/>
-          </div>
-          <span class="alt-q-title">${tab.title}</span>
-      </div>
-  `}).join('');
-
-  updateHighlight(highlightedIndex);
-}
-
-export function updateHighlight(index: number): void {
-  const items = document.querySelectorAll('.alt-q-switcher-item');
-  const listElement = document.getElementById('alt-q-switcher-list');
-  
-  items.forEach((item, i) => {
-    item.classList.toggle('highlighted', i === index);
-  });
-
-  // Auto-scroll to highlighted item when there are many tabs
-  if (listElement && items[index]) {
-    const highlightedItem = items[index] as HTMLElement;
-    const containerRect = listElement.getBoundingClientRect();
-    const itemRect = highlightedItem.getBoundingClientRect();
+  static updateHighlight(index: number): void {
+    const items = document.querySelectorAll('.alt-q-switcher-item');
+    const listElement = document.getElementById(UI_IDS.LIST);
     
-    // Check if item is outside visible area
+    items.forEach((item, i) => {
+      item.classList.toggle('highlighted', i === index);
+    });
+
+    this.scrollToHighlightedItem(listElement, items[index] as HTMLElement);
+  }
+
+  static cleanup(): void {
+    const switcher = document.getElementById(UI_IDS.OVERLAY);
+    if (switcher) switcher.remove();
+    
+    const styles = document.getElementById(UI_IDS.STYLES);
+    if (styles) styles.remove();
+  }
+
+  private static injectCSS(): void {
+    if (document.getElementById(UI_IDS.STYLES)) return;
+    
+    const link = document.createElement('link');
+    link.id = UI_IDS.STYLES;
+    link.rel = 'stylesheet';
+    link.type = 'text/css';
+    link.href = CSS_URL;
+    (document.head || document.documentElement).appendChild(link);
+  }
+
+  private static createOverlay(): void {
+    const switcher = document.createElement('div');
+    switcher.id = UI_IDS.OVERLAY;
+    switcher.innerHTML = `<div id="${UI_IDS.LIST}"></div>`;
+    document.body.appendChild(switcher);
+  }
+
+  private static renderTabs(tabs: TabInfo[]): void {
+    const listElement = document.getElementById(UI_IDS.LIST) as HTMLDivElement;
+    if (!listElement) return;
+
+    listElement.innerHTML = tabs.map(tab => this.createTabHTML(tab)).join('');
+  }
+
+  private static createTabHTML(tab: TabInfo): string {
+    const hasThumb = !!tab.thumbnailUrl;
+    const imgSrc = tab.thumbnailUrl || tab.favIconUrl || DEFAULT_FAVICON;
+    const imgClass = hasThumb ? 'alt-q-preview-img' : 'alt-q-favicon';
+
+    return `
+      <div class="alt-q-switcher-item">
+        <div class="alt-q-img-container">
+          <img src="${imgSrc}" class="${imgClass}" loading="lazy" alt=""/>
+        </div>
+        <span class="alt-q-title">${tab.title || ''}</span>
+      </div>
+    `;
+  }
+
+  private static scrollToHighlightedItem(
+    container: HTMLElement | null,
+    item: HTMLElement | undefined
+  ): void {
+    if (!container || !item) return;
+
+    const containerRect = container.getBoundingClientRect();
+    const itemRect = item.getBoundingClientRect();
+
     if (itemRect.top < containerRect.top) {
-      // Item is above visible area, scroll up
-      highlightedItem.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      item.scrollIntoView({ behavior: 'smooth', block: 'start' });
     } else if (itemRect.bottom > containerRect.bottom) {
-      // Item is below visible area, scroll down
-      highlightedItem.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      item.scrollIntoView({ behavior: 'smooth', block: 'end' });
     }
   }
 }
 
-export function cleanup(): void {
-  const switcher = document.getElementById('alt-q-switcher-overlay');
-  if (switcher) switcher.remove();
-  const styles = document.getElementById('alt-q-switcher-styles');
-  if (styles) styles.remove();
-}
+// Export functions for backward compatibility
+export const createSwitcherUI = (tabs: TabInfo[], highlightedIndex: number) =>
+  UIManager.createSwitcherUI(tabs, highlightedIndex);
 
-function injectCSS(): void {
-  if (document.getElementById('alt-q-switcher-styles')) return;
-  const link = document.createElement('link');
-  link.id = 'alt-q-switcher-styles';
-  link.rel = 'stylesheet';
-  link.type = 'text/css';
-  link.href = chrome.runtime.getURL('switcher.css');
-  (document.head || document.documentElement).appendChild(link);
-}
+export const updateHighlight = (index: number) => UIManager.updateHighlight(index);
+
+export const cleanup = () => UIManager.cleanup();

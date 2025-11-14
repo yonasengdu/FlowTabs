@@ -1,92 +1,84 @@
 import { Message } from '../shared/types';
-import * as TabManager from './tab-manager';
+import { tabManager } from './tab-manager';
+import { EventHandlers } from './event-handlers';
+import { COMMAND_NAME, CHROME_PROTOCOL } from './constants';
+
+chrome.runtime.onStartup.addListener(() => EventHandlers.handleStartup());
+chrome.runtime.onInstalled.addListener(() => EventHandlers.handleInstalled());
 
 
-chrome.runtime.onStartup.addListener(async () => {
-    await TabManager.initializeMruList();
-    // Preload thumbnails after a short delay to ensure tabs are ready
-    setTimeout(() => TabManager.preloadAllTabThumbnails(), 1000);
-});
-chrome.runtime.onInstalled.addListener(async () => {
-    await TabManager.initializeMruList();
-    // Preload thumbnails after a short delay to ensure tabs are ready
-    setTimeout(() => TabManager.preloadAllTabThumbnails(), 1000);
-});
+chrome.tabs.onActivated.addListener((activeInfo) => EventHandlers.handleTabActivated(activeInfo));
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) =>
+  EventHandlers.handleTabUpdated(tabId, changeInfo, tab)
+);
+chrome.tabs.onRemoved.addListener((tabId) => EventHandlers.handleTabRemoved(tabId));
+chrome.tabs.onCreated.addListener((tab) => EventHandlers.handleTabCreated(tab));
 
-chrome.tabs.onActivated.addListener(async (activeInfo) => {
-    TabManager.updateMruList(activeInfo.tabId);
-    // Capture thumbnail for the newly activated tab
-    await TabManager.captureAndCacheTab(activeInfo.tabId);
-});
-
-chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
-    // Preload thumbnail when tab finishes loading and becomes active
-    if (changeInfo.status === 'complete' && tab.active && tab.url && !tab.url.startsWith('chrome://')) {
-        await TabManager.captureAndCacheTab(tabId);
-    }
-});
-
-chrome.tabs.onRemoved.addListener(tabId => TabManager.removeTabFromMru(tabId));
-
-chrome.tabs.onCreated.addListener(async (tab) => {
-    // Add new tab to MRU list
-    if (tab.id) {
-        TabManager.updateMruList(tab.id);
-    }
-    
-    // Preload thumbnail for new tabs after they load
-    if (tab.id && tab.url && !tab.url.startsWith('chrome://') && tab.active) {
-        // Wait a bit for the tab to finish loading, then capture
-        setTimeout(async () => {
-            const updatedTab = await chrome.tabs.get(tab.id!);
-            if (updatedTab.active && updatedTab.status === 'complete') {
-                await TabManager.captureAndCacheTab(tab.id!);
-            }
-        }, 500);
-    }
-});
-chrome.runtime.onConnect.addListener(port => {
-    if (port.name === 'content-script-lifecycle') {}
+chrome.runtime.onConnect.addListener((port) => {
+  if (port.name === 'content-script-lifecycle') {
+  }
 });
 
 
 chrome.commands.onCommand.addListener(async (command) => {
-  if (command !== "alt-q-switch") return;
+  if (command !== COMMAND_NAME) return;
+  
   const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (!activeTab?.id || (activeTab.url && activeTab.url.startsWith('chrome://'))) return;
+  if (!canInjectScript(activeTab)) return;
 
   try {
     await chrome.scripting.executeScript({
-      target: { tabId: activeTab.id },
+      target: { tabId: activeTab.id! },
       files: ['content.js'],
     });
+    
     const message: Message = { type: 'shortcut-pressed' };
-    chrome.tabs.sendMessage(activeTab.id, message);
-  } catch (e) {
-    console.warn(`Alt+Q: Could not inject script: ${(e as Error).message}`);
+    chrome.tabs.sendMessage(activeTab.id!, message);
+  } catch (error) {
+    console.warn(`Alt+Q: Could not inject script: ${(error as Error).message}`);
   }
 });
+
 
 chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) => {
   if (message.type === 'capture-and-get-list') {
-   
-    (async () => {
-        // Capture the current active tab first (blocking for immediate display)
-        await TabManager.captureAndCacheTab(sender.tab!.id!);
-        
-        // Get tabs immediately
-        const tabs = await TabManager.getTabDetails();
-       
-        sendResponse(tabs);
-        
-        // Preload all tab thumbnails in background (non-blocking)
-        TabManager.preloadAllTabThumbnails().catch(() => {
-            // Silently fail for background preloading
-        });
-    })();
+    handleCaptureAndGetList(sender, sendResponse);
     return true; 
-
-  } else if (message.type === 'switch-to-tab') {
+  }
+  
+  if (message.type === 'switch-to-tab') {
     chrome.tabs.update(message.tabId, { active: true });
   }
 });
+
+function canInjectScript(tab: chrome.tabs.Tab | undefined): boolean {
+  return (
+    tab?.id !== undefined &&
+    tab.url !== undefined &&
+    !tab.url.startsWith(CHROME_PROTOCOL)
+  );
+}
+
+async function handleCaptureAndGetList(
+  sender: chrome.runtime.MessageSender,
+  sendResponse: (response?: any) => void
+): Promise<void> {
+  try {
+    if (!sender.tab?.id) {
+      sendResponse([]);
+      return;
+    }
+    
+    await tabManager.captureAndCacheTab(sender.tab.id);
+    const tabs = await tabManager.getTabDetails();
+    sendResponse(tabs);
+    
+    // Preload in background (non-blocking)
+    tabManager.preloadAllTabThumbnails().catch(() => {
+      // Silently fail for background preloading
+    });
+  } catch (error) {
+    console.error('Error handling capture-and-get-list:', error);
+    sendResponse([]);
+  }
+}
