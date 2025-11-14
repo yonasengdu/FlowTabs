@@ -1,0 +1,60 @@
+#alt-q-switcher-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2147483647; /* Max z-index */
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+#alt-q-switcher-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 12px;
+    background-color: rgba(40, 40, 40, 0.8);
+    border-radius: 12px;
+    max-width: 80vw;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.alt-q-switcher-item {
+    width: 200px;
+    padding: 8px;
+    background-color: #3a3a3a;
+    color: #f0f0f0;
+    border: 3px solid transparent;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: all 0.15s ease-in-out;
+    overflow: hidden;
+    cursor: pointer;
+}
+
+.alt-q-switcher-item.highlighted {
+    border-color: #0078d4;
+    transform: scale(1.05);
+    background-color: #4a4a4a;
+}
+
+.alt-q-favicon {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+}
+
+.alt-q-title {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 14px;
+}

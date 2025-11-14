@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "Alt+Q Tab Switcher (TypeScript)",
+  "version": "3.0",
+  "description": "A robust, TypeScript-based tab switcher.",
+  "permissions": ["tabs", "storage", "scripting"],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "commands": {
+    "alt-q-switch": {
+      "suggested_key": { "default": "Alt+Q" },
+      "description": "Activate Tab Switcher"
+    }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["switcher.css"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
