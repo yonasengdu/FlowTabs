@@ -16,7 +16,7 @@ A clean and simple tab-switching interface designed for quick movement between p
 ## Installation
 
 ```bash
-git clone https://github.com/your-username/your-repo-name
+git clone [https://github.com/your-username/your-repo-name](https://github.com/yonasengdu/FlowTabs.git)
 cd your-repo-name
 npm install
 ```
