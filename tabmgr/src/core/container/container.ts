@@ -11,7 +11,7 @@ import { ITabService } from '../services/ITabService';
 
 export const container = new Container();
 
-// Register repositories
+
 container.singleton<ITabRepository>(SERVICE_KEYS.TAB_REPOSITORY, () => {
   return new ChromeTabRepository();
 });
@@ -25,7 +25,7 @@ container.singleton<IThumbnailRepository>(SERVICE_KEYS.THUMBNAIL_REPOSITORY, () 
   return new ThumbnailRepository(storageRepo);
 });
 
-// Register services
+
 container.singleton<ITabService>(SERVICE_KEYS.TAB_SERVICE, () => {
   const tabRepo = container.resolve<ITabRepository>(SERVICE_KEYS.TAB_REPOSITORY);
   const storageRepo = container.resolve<IStorageRepository>(SERVICE_KEYS.STORAGE_REPOSITORY);

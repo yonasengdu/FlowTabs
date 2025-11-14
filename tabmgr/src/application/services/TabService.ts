@@ -7,7 +7,7 @@ import { CHROME_PROTOCOL, THUMBNAIL_QUALITY } from '../../background/constants';
 import { MruList } from './MruList';
 
 export class TabService implements ITabService {
-  // Doubly linked list + HashMap for O(1) MRU operations
+  
   private mruList = new MruList();
   private isInitialized = false;
 
@@ -17,7 +17,7 @@ export class TabService implements ITabService {
     private thumbnailRepository: IThumbnailRepository
   ) {}
 
-  // Convert linked list to array for storage
+
   private getMruArray(): number[] {
     return this.mruList.toArray();
   }
@@ -41,20 +41,20 @@ export class TabService implements ITabService {
     const tabMap = new Map(allTabs.map(tab => [tab.id, tab]));
     const storedTabData = await this.storageRepository.getTabData();
     
-    // Linked list iteration is already in MRU order (most recent first)
+    
     return this.mruList.toArray()
       .map(id => this.createTabInfo(id, tabMap, storedTabData))
       .filter((tab): tab is TabInfo => tab !== null);
   }
 
   async updateMruList(tabId: number): Promise<void> {
-    // O(1) add to front (or move to front if exists)
+   
     this.mruList.add(tabId);
     await this.storageRepository.saveMruList(this.getMruArray());
   }
 
   async removeTab(tabId: number): Promise<void> {
-    // O(1) remove from linked list
+   
     this.mruList.remove(tabId);
     this.thumbnailRepository.removeThumbnail(tabId);
     
@@ -93,7 +93,7 @@ export class TabService implements ITabService {
       const capturePromises = allWindows.map(window => this.processWindow(window));
       await Promise.allSettled(capturePromises);
     } catch (error) {
-      // Silently fail for preloading
+     
     }
   }
 
@@ -101,12 +101,12 @@ export class TabService implements ITabService {
     const storedMruList = await this.storageRepository.getMruList();
     
     if (storedMruList.length > 0) {
-      // Load stored MRU list (most recent first), filtering to only open tabs
+      
       const filteredIds = storedMruList.filter(id => openTabIds.has(id));
       this.mruList.fromArray(filteredIds);
       this.addNewTabsToMruList(tabs, openTabIds);
     } else {
-      // First time: initialize with all tabs
+     
       for (const tab of tabs) {
         if (tab.id) {
           this.mruList.add(tab.id);
@@ -118,7 +118,7 @@ export class TabService implements ITabService {
   }
 
   private addNewTabsToMruList(tabs: chrome.tabs.Tab[], openTabIds: Set<number>): void {
-    // O(n) iteration, but O(1) linked list operations
+
     for (const tab of tabs) {
       if (tab.id && !this.mruList.has(tab.id) && openTabIds.has(tab.id)) {
         this.mruList.add(tab.id);
@@ -146,7 +146,7 @@ export class TabService implements ITabService {
   private async syncMruListWithOpenTabs(): Promise<void> {
     const allTabs = await this.tabRepository.getTabsByWindowType('normal');
     
-    // O(n) iteration, but O(1) linked list operations
+  
     let hasChanges = false;
     for (const tab of allTabs) {
       if (tab.id && !this.mruList.has(tab.id)) {
@@ -256,7 +256,7 @@ export class TabService implements ITabService {
       
       await this.storageRepository.saveTabData(tab.id, tabData);
     } catch (error) {
-      // Silently fail
+      
     }
   }
 }

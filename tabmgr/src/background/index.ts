@@ -6,10 +6,10 @@ import { SERVICE_KEYS } from '../core/container/ServiceKeys';
 import { ITabService } from '../core/services/ITabService';
 import { ITabRepository } from '../core/repositories/ITabRepository';
 
-// Track which tabs have content script injected for optimization
+
 const injectedTabs = new Set<number>();
 
-// Initialize event handlers with DI
+
 EventHandlers.initialize();
 
 chrome.runtime.onStartup.addListener(() => EventHandlers.handleStartup());
@@ -20,7 +20,7 @@ chrome.tabs.onActivated.addListener((activeInfo) => EventHandlers.handleTabActiv
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   EventHandlers.handleTabUpdated(tabId, changeInfo, tab);
   
-  // If URL changes, content script is cleared - remove from injected set
+
   if (changeInfo.url) {
     injectedTabs.delete(tabId);
   }
@@ -46,21 +46,20 @@ chrome.commands.onCommand.addListener(async (command) => {
   const tabId = activeTab.id;
   const message: Message = { type: 'shortcut-pressed' };
   
-  // Fast path: if we know it's injected, just send message
+
   if (injectedTabs.has(tabId)) {
     chrome.tabs.sendMessage(tabId, message).catch(() => {
-      // If message fails, script might have been removed, re-inject
+      
       injectedTabs.delete(tabId);
     });
     return;
   }
 
-  // Try message first (might be injected from previous session)
   try {
     await chrome.tabs.sendMessage(tabId, message);
     injectedTabs.add(tabId);
   } catch {
-    // Not injected, inject now
+    
     try {
       await chrome.scripting.executeScript({
         target: { tabId },
@@ -120,9 +119,9 @@ async function handleCaptureAndGetList(
     const tabs = await tabService.getTabDetails();
     sendResponse(tabs);
     
-    // Preload in background (non-blocking)
+  
     tabService.preloadAllTabThumbnails().catch(() => {
-      // Silently fail for background preloading
+    
     });
   } catch (error) {
     console.error('Error handling capture-and-get-list:', error);

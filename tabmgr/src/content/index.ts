@@ -35,7 +35,7 @@ class SwitcherController {
   private async handleShortcutPress(): Promise<void> {
     if (this.isProcessing) return;
 
-    // Reset the flag and set up keyup listener IMMEDIATELY before any async operations
+   
     this.altReleased = false;
     this.setupAltKeyupListener();
 
@@ -56,9 +56,8 @@ class SwitcherController {
         return;
       }
 
-      // Check if Alt was released during fetchTabs() - fast tap detected
       if (this.altReleased) {
-        // Just switch to previous tab (index 1) without showing popup
+        
         if (tabs[1]?.id) {
           const message: Message = { type: 'switch-to-tab', tabId: tabs[1].id };
           chrome.runtime.sendMessage(message).catch(() => {});
@@ -95,8 +94,7 @@ class SwitcherController {
   }
 
   private setupEventListeners(): void {
-    // Alt listener already set up in handleShortcutPress
-    
+ 
     const overlay = document.getElementById('alt-q-switcher-overlay');
     if (overlay) {
       overlay.addEventListener('click', this.handleCancel.bind(this));
@@ -109,14 +107,11 @@ class SwitcherController {
     e.stopImmediatePropagation();
     e.preventDefault();
 
-    // Mark that Alt was released
     this.altReleased = true;
 
     if (this.stateManager.isVisible()) {
-      // Popup is showing - switch to highlighted tab
       this.selectTab();
     }
-    // If popup isn't visible yet, the flag will be checked in showSwitcher()
     
     this.cleanup();
   }
@@ -130,7 +125,6 @@ class SwitcherController {
     if (selectedTab?.id) {
       const message: Message = { type: 'switch-to-tab', tabId: selectedTab.id };
       chrome.runtime.sendMessage(message).catch(() => {
-        // Ignore errors if extension context is invalidated
       });
     }
   }
@@ -166,7 +160,6 @@ function initialize(): void {
   if ((window as any)[INIT_FLAG]) return;
   (window as any)[INIT_FLAG] = true;
   
-  // Mark that content script is loaded (useful for debugging)
   (window as any).__tabSwitcherInjected = true;
   
   SwitcherController.getInstance();
