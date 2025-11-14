@@ -4,15 +4,24 @@ import { StateManager } from './switcher-state';
 import { KEY_CODES, INIT_FLAG } from './constants';
 
 class SwitcherController {
+  private static instance: SwitcherController | null = null;
   private stateManager = new StateManager();
   private altUpListenerAdded = false;
   private isProcessing = false;
+  private altReleased = false;
   private port: chrome.runtime.Port;
 
-  constructor() {
+  private constructor() {
     this.port = chrome.runtime.connect({ name: 'content-script-lifecycle' });
     this.port.onDisconnect.addListener(() => this.cleanup());
     this.setupMessageListener();
+  }
+
+  static getInstance(): SwitcherController {
+    if (!SwitcherController.instance) {
+      SwitcherController.instance = new SwitcherController();
+    }
+    return SwitcherController.instance;
   }
 
   private setupMessageListener(): void {
@@ -25,6 +34,10 @@ class SwitcherController {
 
   private async handleShortcutPress(): Promise<void> {
     if (this.isProcessing) return;
+
+    // Reset the flag and set up keyup listener IMMEDIATELY before any async operations
+    this.altReleased = false;
+    this.setupAltKeyupListener();
 
     if (!this.stateManager.isVisible()) {
       await this.showSwitcher();
@@ -39,6 +52,18 @@ class SwitcherController {
     try {
       const tabs = await this.fetchTabs();
       if (!tabs || tabs.length === 0) {
+        this.isProcessing = false;
+        return;
+      }
+
+      // Check if Alt was released during fetchTabs() - fast tap detected
+      if (this.altReleased) {
+        // Just switch to previous tab (index 1) without showing popup
+        if (tabs[1]?.id) {
+          const message: Message = { type: 'switch-to-tab', tabId: tabs[1].id };
+          chrome.runtime.sendMessage(message).catch(() => {});
+        }
+        this.cleanup();
         this.isProcessing = false;
         return;
       }
@@ -62,12 +87,16 @@ class SwitcherController {
     return chrome.runtime.sendMessage({ type: 'capture-and-get-list' });
   }
 
-  private setupEventListeners(): void {
+  private setupAltKeyupListener(): void {
     if (!this.altUpListenerAdded) {
       window.addEventListener('keyup', this.handleAltUp.bind(this), { capture: true });
       this.altUpListenerAdded = true;
     }
+  }
 
+  private setupEventListeners(): void {
+    // Alt listener already set up in handleShortcutPress
+    
     const overlay = document.getElementById('alt-q-switcher-overlay');
     if (overlay) {
       overlay.addEventListener('click', this.handleCancel.bind(this));
@@ -80,9 +109,16 @@ class SwitcherController {
     e.stopImmediatePropagation();
     e.preventDefault();
 
+    // Mark that Alt was released
+    this.altReleased = true;
+
     if (this.stateManager.isVisible()) {
+      // Popup is showing - switch to highlighted tab
       this.selectTab();
     }
+    // If popup isn't visible yet, the flag will be checked in showSwitcher()
+    
+    this.cleanup();
   }
 
   private isAltKey(e: KeyboardEvent): boolean {
@@ -97,7 +133,6 @@ class SwitcherController {
         // Ignore errors if extension context is invalidated
       });
     }
-    this.cleanup();
   }
 
   private handleCancel(e: MouseEvent): void {
@@ -131,7 +166,10 @@ function initialize(): void {
   if ((window as any)[INIT_FLAG]) return;
   (window as any)[INIT_FLAG] = true;
   
-  new SwitcherController();
+  // Mark that content script is loaded (useful for debugging)
+  (window as any).__tabSwitcherInjected = true;
+  
+  SwitcherController.getInstance();
 }
 
 initialize();

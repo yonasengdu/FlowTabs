@@ -1,17 +1,34 @@
 import { Message } from '../shared/types';
-import { tabManager } from './tab-manager';
 import { EventHandlers } from './event-handlers';
 import { COMMAND_NAME, CHROME_PROTOCOL } from './constants';
+import { container } from '../core/container/container';
+import { SERVICE_KEYS } from '../core/container/ServiceKeys';
+import { ITabService } from '../core/services/ITabService';
+import { ITabRepository } from '../core/repositories/ITabRepository';
+
+// Track which tabs have content script injected for optimization
+const injectedTabs = new Set<number>();
+
+// Initialize event handlers with DI
+EventHandlers.initialize();
 
 chrome.runtime.onStartup.addListener(() => EventHandlers.handleStartup());
 chrome.runtime.onInstalled.addListener(() => EventHandlers.handleInstalled());
 
 
 chrome.tabs.onActivated.addListener((activeInfo) => EventHandlers.handleTabActivated(activeInfo));
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) =>
-  EventHandlers.handleTabUpdated(tabId, changeInfo, tab)
-);
-chrome.tabs.onRemoved.addListener((tabId) => EventHandlers.handleTabRemoved(tabId));
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  EventHandlers.handleTabUpdated(tabId, changeInfo, tab);
+  
+  // If URL changes, content script is cleared - remove from injected set
+  if (changeInfo.url) {
+    injectedTabs.delete(tabId);
+  }
+});
+chrome.tabs.onRemoved.addListener((tabId) => {
+  EventHandlers.handleTabRemoved(tabId);
+  injectedTabs.delete(tabId);
+});
 chrome.tabs.onCreated.addListener((tab) => EventHandlers.handleTabCreated(tab));
 
 chrome.runtime.onConnect.addListener((port) => {
@@ -24,18 +41,36 @@ chrome.commands.onCommand.addListener(async (command) => {
   if (command !== COMMAND_NAME) return;
   
   const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (!canInjectScript(activeTab)) return;
+  if (!canInjectScript(activeTab) || !activeTab.id) return;
 
-  try {
-    await chrome.scripting.executeScript({
-      target: { tabId: activeTab.id! },
-      files: ['content.js'],
+  const tabId = activeTab.id;
+  const message: Message = { type: 'shortcut-pressed' };
+  
+  // Fast path: if we know it's injected, just send message
+  if (injectedTabs.has(tabId)) {
+    chrome.tabs.sendMessage(tabId, message).catch(() => {
+      // If message fails, script might have been removed, re-inject
+      injectedTabs.delete(tabId);
     });
-    
-    const message: Message = { type: 'shortcut-pressed' };
-    chrome.tabs.sendMessage(activeTab.id!, message);
-  } catch (error) {
-    console.warn(`Alt+Q: Could not inject script: ${(error as Error).message}`);
+    return;
+  }
+
+  // Try message first (might be injected from previous session)
+  try {
+    await chrome.tabs.sendMessage(tabId, message);
+    injectedTabs.add(tabId);
+  } catch {
+    // Not injected, inject now
+    try {
+      await chrome.scripting.executeScript({
+        target: { tabId },
+        files: ['content.js'],
+      });
+      injectedTabs.add(tabId);
+      chrome.tabs.sendMessage(tabId, message).catch(() => {});
+    } catch (error) {
+      console.warn(`Alt+Q: Could not inject script: ${(error as Error).message}`);
+    }
   }
 });
 
@@ -47,9 +82,24 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
   }
   
   if (message.type === 'switch-to-tab') {
-    chrome.tabs.update(message.tabId, { active: true });
+    handleSwitchToTab(message.tabId);
   }
 });
+
+async function handleSwitchToTab(tabId: number): Promise<void> {
+  try {
+    const tabService = container.resolve<ITabService>(SERVICE_KEYS.TAB_SERVICE);
+    const tabRepository = container.resolve<ITabRepository>(SERVICE_KEYS.TAB_REPOSITORY);
+    
+    // Update MRU list FIRST to ensure correct order for next popup
+    await tabService.updateMruList(tabId);
+    
+    // Then switch the tab
+    await tabRepository.updateTab(tabId, { active: true });
+  } catch (error) {
+    console.error('Error switching to tab:', error);
+  }
+}
 
 function canInjectScript(tab: chrome.tabs.Tab | undefined): boolean {
   return (
@@ -69,12 +119,13 @@ async function handleCaptureAndGetList(
       return;
     }
     
-    await tabManager.captureAndCacheTab(sender.tab.id);
-    const tabs = await tabManager.getTabDetails();
+    const tabService = container.resolve<ITabService>(SERVICE_KEYS.TAB_SERVICE);
+    await tabService.captureAndCacheTab(sender.tab.id);
+    const tabs = await tabService.getTabDetails();
     sendResponse(tabs);
     
     // Preload in background (non-blocking)
-    tabManager.preloadAllTabThumbnails().catch(() => {
+    tabService.preloadAllTabThumbnails().catch(() => {
       // Silently fail for background preloading
     });
   } catch (error) {
