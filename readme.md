@@ -1,27 +1,37 @@
 
-# Flowtabs Navigation
+# Flowtabs 
 
-A clean and simple tab-based navigation system using Flowtabs. Designed for quick movement between pages with a minimal, clutter-free layout.
+A clean and simple tab-switching interface designed for quick movement between pages with a minimal, distraction-free layout.
 
 ## Features
 
 * Fast switching between tabs
-* Minimal interface
-* Smooth, distraction-free navigation
+* Clean, lightweight overlay
+* Smooth keyboard-based navigation
 
 ## Shortcut
 
-* **Ctrl + Q** — open the tab switcher
+* **ALT + Q** — open the tab switcher
 
 ## Installation
 
-Clone the repo and run it in your preferred environment.
-
-```
+```bash
 git clone https://github.com/your-username/your-repo-name
+cd your-repo-name
+npm install
 ```
 
-## Usage
+## Build
 
-Open the project, launch the app, and use **ALT + Q** to bring up the switcher anytime.
+```bash
+npm run build
+```
 
+This will generate a **dist/** folder containing the final extension files.
+
+## Load the Extension (Chrome / Edge) <-- tested only in chrome
+
+1. Open **chrome://extensions**
+2. Enable **Developer mode**
+3. Click **Load unpacked**
+4. Select the **dist/** folder
