@@ -8,12 +8,20 @@ export function createSwitcherUI(tabs: TabInfo[], highlightedIndex: number): voi
   document.body.appendChild(switcher);
 
   const listElement = document.getElementById('alt-q-switcher-list') as HTMLDivElement;
-  listElement.innerHTML = tabs.map(tab => `
+  
+  listElement.innerHTML = tabs.map(tab => {
+      const hasThumb = !!tab.thumbnailUrl;
+      const imgSrc = tab.thumbnailUrl || tab.favIconUrl || 'https://i.imgur.com/8QZ7gV5.png';
+      const imgClass = hasThumb ? 'alt-q-preview-img' : 'alt-q-favicon';
+
+      return `
       <div class="alt-q-switcher-item">
-          <img src="${tab.favIconUrl || 'https://i.imgur.com/8QZ7gV5.png'}" class="alt-q-favicon" alt=""/>
+          <div class="alt-q-img-container">
+            <img src="${imgSrc}" class="${imgClass}" loading="lazy" alt=""/>
+          </div>
           <span class="alt-q-title">${tab.title}</span>
       </div>
-  `).join('');
+  `}).join('');
 
   updateHighlight(highlightedIndex);
 }

@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
-  "name": "Alt+Q Tab Switcher (TypeScript)",
-  "version": "3.0",
-  "description": "A robust, TypeScript-based tab switcher.",
-  "permissions": ["tabs", "storage", "scripting"],
+  "name": "TabMgr",
+  "version": "1.0",
+  "description": "An extension to switch between Chrome tabs using Alt+Q",
+  "permissions": ["tabs", "storage", "scripting", "activeTab"],
   "host_permissions": ["<all_urls>"],
   "background": {
     "service_worker": "background.js"
